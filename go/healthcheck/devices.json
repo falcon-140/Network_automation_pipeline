@@ -1,0 +1,6 @@
+[
+  {"hostname": "edge-router-01", "mgmt_ip": "10.10.0.1", "platform": "cisco_ios", "role": "edge", "site": "sjc1"},
+  {"hostname": "core-router-01", "mgmt_ip": "10.10.0.2", "platform": "arista_eos", "role": "core", "site": "sjc1"},
+  {"hostname": "leaf-switch-01", "mgmt_ip": "10.10.0.3", "platform": "juniper_junos", "role": "leaf", "site": "sjc1"},
+  {"hostname": "edge-router-02", "mgmt_ip": "10.20.0.1", "platform": "cisco_ios", "role": "edge", "site": "nyc1"}
+]

@@ -1,0 +1,94 @@
+devices:
+  - hostname: edge-router-01
+    mgmt_ip: 10.10.0.1
+    platform: cisco_ios
+    role: edge
+    site: sjc1
+    vars:
+      domain: corp.internal
+      local_asn: 65001
+      syslog_server: 10.0.0.254
+      ntp_server: pool.ntp.org
+      snmp_ro_community: "n3tw0rk-ro-2026"
+      interfaces:
+        - name: GigabitEthernet0/0
+          description: uplink-to-isp-a
+          ip: 203.0.113.1
+          mask: 255.255.255.252
+          enabled: true
+        - name: GigabitEthernet0/1
+          description: to-core-router-01
+          ip: 10.255.0.1
+          mask: 255.255.255.252
+          enabled: true
+      bgp_neighbors:
+        - ip: 203.0.113.2
+          asn: 64512
+          description: isp-a-peer
+
+  - hostname: core-router-01
+    mgmt_ip: 10.10.0.2
+    platform: arista_eos
+    role: core
+    site: sjc1
+    vars:
+      local_asn: 65001
+      syslog_server: 10.0.0.254
+      ntp_server: pool.ntp.org
+      interfaces:
+        - name: Ethernet1
+          description: to-edge-router-01
+          ip: 10.255.0.2
+          prefix_len: 30
+          enabled: true
+        - name: Ethernet2
+          description: to-leaf-switch-01
+          ip: 10.255.1.1
+          prefix_len: 30
+          enabled: true
+      bgp_neighbors:
+        - ip: 10.255.1.2
+          asn: 65010
+          description: leaf-switch-01-peer
+
+  - hostname: leaf-switch-01
+    mgmt_ip: 10.10.0.3
+    platform: juniper_junos
+    role: leaf
+    site: sjc1
+    vars:
+      local_asn: 65010
+      syslog_server: 10.0.0.254
+      ntp_server: pool.ntp.org
+      interfaces:
+        - name: ge-0/0/0
+          description: to-core-router-01
+          ip: 10.255.1.2
+          prefix_len: 30
+          enabled: true
+      bgp_neighbors:
+        - ip: 10.255.1.1
+          asn: 65001
+          description: core-router-01-peer
+
+  - hostname: edge-router-02
+    mgmt_ip: 10.20.0.1
+    platform: cisco_ios
+    role: edge
+    site: nyc1
+    vars:
+      domain: corp.internal
+      local_asn: 65002
+      syslog_server: 10.0.0.254
+      ntp_server: pool.ntp.org
+      snmp_ro_community: "n3tw0rk-ro-2026"
+      interfaces:
+        - name: GigabitEthernet0/0
+          description: uplink-to-isp-b
+          ip: 198.51.100.1
+          mask: 255.255.255.252
+          enabled: true
+      bgp_neighbors:
+        - ip: 198.51.100.2
+          asn: 64513
+          description: isp-b-peer

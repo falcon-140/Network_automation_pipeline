@@ -1,0 +1,29 @@
+groups:
+  - name: network-fleet-health
+    rules:
+      - alert: NetworkDeviceDown
+        expr: network_device_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Network device {{ $labels.hostname }} is unreachable"
+          description: "{{ $labels.hostname }} ({{ $labels.site }}) has failed health checks for 2+ minutes."
+
+      - alert: NetworkDeviceHighFailureRate
+        expr: rate(network_device_failures_total[10m]) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated health-check failure rate on {{ $labels.hostname }}"
+          description: "{{ $labels.hostname }} is failing more than 20% of health checks over the last 10m."
+
+      - alert: NetworkDeviceHighLatency
+        expr: network_device_latency_ms > 200
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High management-plane latency on {{ $labels.hostname }}"
+          description: "{{ $labels.hostname }} latency is {{ $value }}ms, above the 200ms threshold."

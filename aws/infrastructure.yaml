@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Infrastructure for the network automation pipeline: versioned S3 bucket for
+  config backups/audit trail, and a CloudWatch alarm on the custom
+  FleetDriftedDevices metric published by the deploy workflow.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+  DriftAlarmThreshold:
+    Type: Number
+    Default: 1
+    Description: Alarm if more than this many devices are drifted from intended config.
+  AlarmNotificationEmail:
+    Type: String
+    Description: Email address to notify when the drift alarm fires.
+
+Resources:
+  ConfigBackupBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "network-config-backups-${EnvironmentName}-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 180
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  DriftAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "network-config-drift-${EnvironmentName}"
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlarmNotificationEmail
+
+  FleetDriftAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "network-fleet-drifted-devices-${EnvironmentName}"
+      AlarmDescription: Fires when devices are running config that differs from intended (source-controlled) config.
+      Namespace: NetworkAutomationPipeline
+      MetricName: FleetDriftedDevices
+      Dimensions:
+        - Name: Environment
+          Value: !Ref EnvironmentName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref DriftAlarmThreshold
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref DriftAlarmTopic
+
+Outputs:
+  BucketName:
+    Value: !Ref ConfigBackupBucket
+  DriftAlarmTopicArn:
+    Value: !Ref DriftAlarmTopic

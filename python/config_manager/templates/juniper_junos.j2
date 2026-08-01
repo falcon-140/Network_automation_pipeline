@@ -1,0 +1,40 @@
+/* ---------------------------------------------------------
+ * Managed by network-automation-pipeline. Do not edit by hand.
+ * Device: {{ hostname }}  Site: {{ site }}  Role: {{ role }}
+ * --------------------------------------------------------- */
+system {
+    host-name {{ hostname }};
+    syslog {
+        host {{ syslog_server | default('10.0.0.254') }} {
+            any any;
+        }
+    }
+    ntp {
+        server {{ ntp_server | default('pool.ntp.org') }};
+    }
+}
+interfaces {
+{% for iface in interfaces | default([]) %}
+    {{ iface.name }} {
+        description "{{ iface.description | default('managed-by-pipeline') }}";
+        unit 0 {
+            family inet {
+                address {{ iface.ip }}/{{ iface.prefix_len | default(24) }};
+            }
+        }
+    }
+{% endfor %}
+}
+protocols {
+    bgp {
+        group upstream {
+            local-as {{ local_asn | default(65000) }};
+{% for neighbor in bgp_neighbors | default([]) %}
+            neighbor {{ neighbor.ip }} {
+                peer-as {{ neighbor.asn }};
+                description "{{ neighbor.description | default('') }}";
+            }
+{% endfor %}
+        }
+    }
+}

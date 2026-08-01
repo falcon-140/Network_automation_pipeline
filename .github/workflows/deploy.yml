@@ -1,0 +1,100 @@
+name: Deploy Network Configs
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "python/inventory/**"
+      - "python/config_manager/templates/**"
+  push:
+    branches: [main]
+    paths:
+      - "python/inventory/**"
+      - "python/config_manager/templates/**"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode (plan only, no push)"
+        type: boolean
+        default: true
+
+permissions:
+  id-token: write   # for OIDC -> AWS role assumption
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    name: Plan (dry-run diff, posted to PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Start API and request fleet-wide plan
+        run: |
+          uvicorn config_manager.api:app --host 0.0.0.0 --port 8000 &
+          sleep 2
+          curl -s -X POST http://localhost:8000/deploy -H "Content-Type: application/json" \
+            -d '{"dry_run": true}' | tee plan-output.json | python3 -m json.tool
+
+  deploy:
+    name: Deploy to fleet
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      # In production this step assumes an AWS role via OIDC (no long-lived keys).
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Start config-management API
+        run: |
+          uvicorn config_manager.api:app --host 0.0.0.0 --port 8000 &
+          sleep 2
+
+      - name: Roll out configs to fleet (max 1 failure before halting)
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+          curl -s -X POST http://localhost:8000/deploy -H "Content-Type: application/json" \
+            -d "{\"dry_run\": ${DRY_RUN}, \"max_failures\": 1}" | tee deploy-output.json | python3 -m json.tool
+          python3 -c "
+          import json, sys
+          results = json.load(open('deploy-output.json'))
+          failed = [r for r in results if r['status'] in ('push_failed',)]
+          if failed:
+              print(f'{len(failed)} device(s) failed deployment:', failed)
+              sys.exit(1)
+          "
+
+      - name: Back up rendered configs to S3
+        working-directory: aws
+        run: |
+          python3 backup_configs_to_s3.py --inventory ../python/inventory/devices.yaml \
+            --bucket ${{ secrets.CONFIG_BACKUP_BUCKET }} --region us-west-2
+
+      - name: Publish fleet drift metric to CloudWatch
+        working-directory: aws
+        run: |
+          python3 publish_drift_metric.py --environment production --region us-west-2
+
+      - name: Deployment summary
+        run: curl -s http://localhost:8000/deploy/summary | python3 -m json.tool

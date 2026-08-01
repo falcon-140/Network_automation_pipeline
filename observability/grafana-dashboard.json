@@ -1,0 +1,54 @@
+{
+  "title": "Network Fleet Health",
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Devices Up / Down",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(network_device_up)", "legendFormat": "Up" },
+        { "expr": "count(network_device_up) - sum(network_device_up)", "legendFormat": "Down" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Per-Device Reachability",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 16, "x": 8, "y": 0 },
+      "targets": [
+        { "expr": "network_device_up", "legendFormat": "{{hostname}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Management-Plane Latency (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "network_device_latency_ms", "legendFormat": "{{hostname}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Health Check Failure Rate (10m)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "targets": [
+        { "expr": "rate(network_device_failures_total[10m])", "legendFormat": "{{hostname}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Total Health Checks Performed",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        { "expr": "network_device_checks_total", "legendFormat": "{{hostname}}" }
+      ]
+    }
+  ]
+}

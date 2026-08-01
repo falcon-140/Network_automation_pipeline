@@ -1,0 +1,30 @@
+! ---------------------------------------------------------
+! Managed by network-automation-pipeline. Do not edit by hand.
+! Device: {{ hostname }}  Site: {{ site }}  Role: {{ role }}
+! ---------------------------------------------------------
+hostname {{ hostname }}
+!
+ip domain-name {{ domain | default('corp.internal') }}
+!
+{% for iface in interfaces | default([]) %}
+interface {{ iface.name }}
+ description {{ iface.description | default('managed-by-pipeline') }}
+ ip address {{ iface.ip }} {{ iface.mask }}
+{% if iface.enabled | default(true) %}
+ no shutdown
+{% else %}
+ shutdown
+{% endif %}
+!
+{% endfor %}
+{% for neighbor in bgp_neighbors | default([]) %}
+router bgp {{ local_asn }}
+ neighbor {{ neighbor.ip }} remote-as {{ neighbor.asn }}
+ neighbor {{ neighbor.ip }} description {{ neighbor.description | default('') }}
+!
+{% endfor %}
+snmp-server community {{ snmp_ro_community | default('READONLY') }} RO
+logging host {{ syslog_server | default('10.0.0.254') }}
+ntp server {{ ntp_server | default('pool.ntp.org') }}
+!
+end

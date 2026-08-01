@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  config-api:
+    build: ./python
+    container_name: config-api
+    ports:
+      - "8000:8000"
+    environment:
+      - INVENTORY_PATH=/app/inventory/devices.yaml
+
+  healthcheck:
+    build: ./go/healthcheck
+    container_name: healthcheck
+    ports:
+      - "9200:9200"
+    environment:
+      - INVENTORY_SOURCE=file
+      - INVENTORY_FILE=/devices.json
+      - CHECKER_MODE=simulated
+      - POLL_INTERVAL=15s
+    depends_on:
+      - config-api
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+    depends_on:
+      - healthcheck
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus

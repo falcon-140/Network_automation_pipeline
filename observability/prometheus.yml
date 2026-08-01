@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "network-healthcheck"
+    static_configs:
+      - targets: ["healthcheck:9200"]
+        labels:
+          service: network-automation-pipeline
+
+  - job_name: "config-management-api"
+    metrics_path: /health
+    static_configs:
+      - targets: ["config-api:8000"]
+        labels:
+          service: network-automation-pipeline
+
+rule_files:
+  - "alert_rules.yml"
